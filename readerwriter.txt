@@ -1,0 +1,89 @@
+#include <pthread.h>
+#include <stdio.h>
+
+#define NUM_READERS 3
+#define NUM_WRITERS 2
+
+sem_t read_sem;  // Allows multiple readers to enter
+sem_t write_sem; // Ensures only one writer is active
+
+int data = 0;    // Shared data
+
+void *reader(void *arg) {
+    int reader_id = *(int *)arg;
+
+    while (1) {
+        // Wait for permission to read
+        sem_wait(&read_sem);
+
+        // Read the shared data
+        printf("Reader %d: Reading data = %d\n", reader_id, data);
+
+        // Release permission to read
+        sem_post(&read_sem);
+
+        // Simulate reading time
+        sleep(1);
+    }
+
+    return NULL;
+}
+
+void *writer(void *arg) {
+    int writer_id = *(int *)arg;
+
+    while (1) {
+        // Acquire write_sem (exclusive access)
+        sem_wait(&write_sem);
+
+        // Update the shared data
+        data++;
+        printf("Writer %d: Writing data = %d\n", writer_id, data);
+
+        // Release write_sem (allow others to access)
+        sem_post(&write_sem);
+
+        // Simulate writing time
+        sleep(2);
+    }
+
+    return NULL;
+}
+
+int main() {
+    int reader_ids[NUM_READERS];
+    int writer_ids[NUM_WRITERS];
+    pthread_t reader_threads[NUM_READERS];
+    pthread_t writer_threads[NUM_WRITERS];
+
+    // Initialize semaphores
+    sem_init(&read_sem, 0, 1);  // Allow multiple readers initially
+    sem_init(&write_sem, 0, 1);  // Only one writer allowed
+
+    // Create reader threads
+    for (int i = 0; i < NUM_READERS; i++) {
+        reader_ids[i] = i;
+        pthread_create(&reader_threads[i], NULL, reader, (void *)&reader_ids[i]);
+    }
+
+    // Create writer threads
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        writer_ids[i] = i;
+        pthread_create(&writer_threads[i], NULL, writer, (void *)&writer_ids[i]);
+    }
+
+    // Wait for all threads to finish (optional)
+    for (int i = 0; i < NUM_READERS; i++) {
+        pthread_join(reader_threads[i], NULL);
+    }
+
+    for (int i = 0; i < NUM_WRITERS; i++) {
+        pthread_join(writer_threads[i], NULL);
+    }
+
+    // Destroy semaphores
+    sem_destroy(&read_sem);
+    sem_destroy(&write_sem);
+
+    return 0;
+}

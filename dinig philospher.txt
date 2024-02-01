@@ -1,0 +1,41 @@
+#include<stdio.h>
+#include<pthread.h>
+#include<stdlib.h>
+#include<semaphore.h>
+
+sem_t chopsticks[5];
+sem_t lock;
+void* philosopher(void* ptr)
+{
+    int i = (int)ptr;
+    if(*i%2==0)
+    {
+    sem_wait(&chopsticks[*i]); //right 
+    sem_wait(&chopsticks[(*i+1)%5]); //left
+    }
+    else{
+        sem_wait(&chopsticks[(*i+1)%5]); //left
+        sem_wait(&chopsticks[*i]); //right 
+    }
+
+    //Eating
+    sleep(1);
+
+    sem_post(&chopsticks[*i]);
+    sem_post(&chopsticks[(*i+1)%5]);
+
+}
+int main()
+{
+    sem_init(&lock,0,1);
+    for(int i=0;i<5;i++)
+        sem_init(&chopsticks[i],0,1);
+    pthread_t p[5];
+    for(int i=0;i<5;i++)
+        pthread_create(&p[i],NULL,&philosopher,NULL);
+    
+    for(int i=0;i<5;i++)
+        pthread_join(p[i],NULL);
+    
+    return 0;
+}

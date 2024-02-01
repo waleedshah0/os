@@ -1,0 +1,79 @@
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
+
+sem_t mutex, counter;
+int num_men = 0, num_women = 0;
+
+void *men(void *arg) {
+    while (1) {
+        // Wait for exclusive access to the prayer room
+        sem_wait(&mutex);
+
+        // Check if the prayer room is available for men
+        if (num_women == 0 && num_men < 3) {
+            num_men++;
+            printf("Men in the prayer room: %d\n", num_men);
+            // Signal that a man is in the prayer room
+            sem_post(&counter);
+        }
+
+        // Release exclusive access to the prayer room
+        sem_post(&mutex);
+
+        // Simulate some work outside the prayer room
+        // ...
+
+        // Simulate leaving the prayer room
+        sem_wait(&counter);
+        num_men--;
+        printf("Men leaving the prayer room: %d\n", num_men);
+    }
+}
+
+void *women(void *arg) {
+    while (1) {
+        // Wait for exclusive access to the prayer room
+        sem_wait(&mutex);
+
+        // Check if the prayer room is available for women
+        if (num_men == 0 && num_women < 3) {
+            num_women++;
+            printf("Women in the prayer room: %d\n", num_women);
+            // Signal that a woman is in the prayer room
+            sem_post(&counter);
+        }
+
+        // Release exclusive access to the prayer room
+        sem_post(&mutex);
+
+        // Simulate some work outside the prayer room
+        // ...
+
+        // Simulate leaving the prayer room
+        sem_wait(&counter);
+        num_women--;
+        printf("Women leaving the prayer room: %d\n", num_women);
+    }
+}
+
+int main() {
+    // Initialize semaphores
+    sem_init(&mutex, 0, 1);
+    sem_init(&counter, 0, 0);
+
+    // Create threads for men and women
+    pthread_t men_thread, women_thread;
+    pthread_create(&men_thread, NULL, men, NULL);
+    pthread_create(&women_thread, NULL, women, NULL);
+
+    // Wait for threads to finish (this won't happen in this example as they run indefinitely)
+    pthread_join(men_thread, NULL);
+    pthread_join(women_thread, NULL);
+
+    // Destroy semaphores
+    sem_destroy(&mutex);
+    sem_destroy(&counter);
+
+    return 0;
+}
