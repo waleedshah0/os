@@ -1,0 +1,108 @@
+/*Suppose that a database is to be shared among several concurrent processes. Some of these 
+processes may want only to read the database, whereas others may want to update (that is, to 
+read and write) the database. We distinguish between these two types of processes by 
+referring to the former as readers and to the latter as writers. Obviously, if two readers access 
+the shared data simultaneously, no adverse effects will result. However, if a writer and some 
+other process (either a reader or a writer) access the database simultaneously, chaos may 
+ensue.
+To ensure that these difficulties do not arise, we require that the writers have exclusive access 
+to the shared database while writing to the database. This synchronization problem is referred 
+to as the readers – writers’ problem.
+Readers-writers problem has two variants.
+The second readers –writers problem requires that, once a writer is ready, that writer perform 
+its write as soon as possible. In other words, if a writer is waiting to access the object, no new 
+readers may start reading.
+In this case readers may starve.
+We want to write a code for the second reader-writer problem such that starvation does't 
+occur.
+Implementation Details:
+We have 2 writers and 4 readers. The writer thread has a function for writing on the data 
+structure and the reader thread has a funtion for reading from it. Each writer thread writes its 
+own thread id in the data strcture. In the beggining of the program all of the thread are made 
+and run at the same time.*/
+
+
+#include <stdio.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+#define NUM_READERS 4
+#define NUM_WRITERS 2
+
+int data = 0; // Shared data structure
+sem_t reader_sem; // Binary semaphore for readers
+sem_t writer_sem; // Binary semaphore for writers
+int readers_count = 0; // Number of readers currently accessing the data
+
+void *reader_func(void *arg) {
+    int reader_id = *(int *)arg;
+
+    while (1) {
+        sem_wait(&reader_sem); // Wait before reading
+        readers_count++;
+
+        // Critical section (reader is accessing the data)
+        printf("Reader %d: Reading data = %d\n", reader_id, data);
+        sleep(1); // Simulate reading time
+
+        readers_count--;
+        if (readers_count == 0) {
+            sem_post(&writer_sem); // Signal a waiting writer if no readers left
+        }
+        sem_post(&reader_sem); // Release other readers
+    }
+
+    pthread_exit(NULL);
+}
+
+void *writer_func(void *arg) {
+    int writer_id = *(int *)arg;
+
+    while (1) {
+        sem_wait(&writer_sem); // Wait for exclusive access
+
+        // Critical section (writer is modifying the data)
+        printf("Writer %d: Writing data = %d\n", writer_id, writer_id + 1);
+        data = writer_id + 1;
+        sleep(2); // Simulate writing time
+
+        sem_post(&reader_sem); // Signal all waiting readers (prevents reader starvation)
+    }
+
+    pthread_exit(NULL);
+}
+
+int main() {
+    int i;
+    pthread_t reader_threads[NUM_READERS], writer_threads[NUM_WRITERS];
+    int reader_ids[NUM_READERS], writer_ids[NUM_WRITERS];
+
+    sem_init(&reader_sem, 0, 1); // Initialize reader semaphore
+    sem_init(&writer_sem, 0, 0); // Initialize writer semaphore
+
+    // Create reader threads
+    for (i = 0; i < NUM_READERS; i++) {
+        reader_ids[i] = i;
+        pthread_create(&reader_threads[i], NULL, reader_func, &reader_ids[i]);
+    }
+
+    // Create writer threads
+    for (i = 0; i < NUM_WRITERS; i++) {
+        writer_ids[i] = i;
+        pthread_create(&writer_threads[i], NULL, writer_func, &writer_ids[i]);
+    }
+
+    // Join all threads (optional)
+    for (i = 0; i < NUM_READERS; i++) {
+        pthread_join(reader_threads[i], NULL);
+    }
+    for (i = 0; i < NUM_WRITERS; i++) {
+        pthread_join(writer_threads[i], NULL);
+    }
+
+    sem_destroy(&reader_sem); // Destroy semaphores
+    sem_destroy(&writer_sem);
+
+    return 0;
+}
